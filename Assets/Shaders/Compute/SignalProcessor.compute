@@ -1,0 +1,22 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+struct ValuePoint
+{
+    float2 pos;
+    float val;
+};
+
+float2 sourceCoords;
+float sourceStrength;
+
+RWStructuredBuffer<ValuePoint> valuePoints;
+[numthreads(8,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    ValuePoint valuePoint = valuePoints[id.x];
+
+    valuePoint.val += sourceStrength / (pow((valuePoint.pos.x - sourceCoords.x), 2) + pow(valuePoint.pos.y - sourceCoords.y, 2));
+
+    valuePoints[id.x] = valuePoint;
+}

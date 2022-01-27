@@ -8,53 +8,86 @@ public class CircleManager : MonoBehaviour
     private Vector2 worldDimensions;
     // Resolution of blocks used in marching cubes, higher res = better picture
     public int resolutionY;
+    private int prevResY;
     private int resolutionX;
     // Size of blocks used in marching cubes, calculated with resolution
     private float blockSize;
-    private float halfBlock;
     // All metacircles in the simulation
     private Metacircle[]  circles;
     // Stores the summation of all circle signal values for marching cubes
-    private float[,] signalMap;
+    private ValuePoint[] signalMap;
+    private RenderTexture signalTexture;
+    public ComputeShader signalProcessor;
+    public Transform background;
+    public Material bgMaterial;
+    public ComputeShader signalRenderer;
+
+    public struct ValuePoint
+    {
+        public Vector2 pos;
+        public float val;
+    }
     
     void Start()
     {
         circles = GetComponentsInChildren<Metacircle>();
         worldDimensions = cam.ScreenToWorldPoint(new Vector2(0, cam.pixelHeight));
-    }
-
-    private void OnDrawGizmos() 
-    {
-        Gizmos.color = Color.white;
-
-        for (int i = 0; i < resolutionX + 1; i++)
-        {
-            Gizmos.DrawLine(new Vector2(i * blockSize - worldDimensions.x, -worldDimensions.y), new Vector2(i * blockSize - worldDimensions.x, worldDimensions.y));
-
-            for (int j = 0; j < resolutionY + 1; j++)
-                Gizmos.DrawLine(new Vector2(-worldDimensions.x, j * blockSize - worldDimensions.y), new Vector2(worldDimensions.x, j * blockSize - worldDimensions.y));
-        }
-
-        for (int i = 0; i < resolutionX; i++)
-            for (int j = 0; j < resolutionY; j++)
-            {
-                Gizmos.color = new Color(1f - (1f / Mathf.Max(1, signalMap[i, j])), 1f - (1f / Mathf.Max(1, signalMap[i, j])), 1f - (1f / Mathf.Max(1, signalMap[i, j])), .5f);
-                Gizmos.DrawCube(new Vector2(i * blockSize - worldDimensions.x + halfBlock, j * blockSize - worldDimensions.y + halfBlock), Vector2.one * blockSize);
-            }
+            
+        signalTexture = new RenderTexture(Screen.width, Screen.height, 24);
+        signalTexture.enableRandomWrite = true;
+        signalTexture.Create();
     }
 
     void Update()
     {
-        resolutionX = (Screen.width * resolutionY) / Screen.height;
-        blockSize = (worldDimensions.y * 2) / resolutionY;
-        halfBlock = blockSize / 2;
-        worldDimensions.x = (resolutionX * blockSize) / 2;
-        
-        signalMap = new float[resolutionX + 1, resolutionY + 1];
+
+        if (prevResY != resolutionY)
+            calculateGrid();
 
         for (int i = 0; i < resolutionX + 1; i++)
             for (int j = 0; j < resolutionY + 1; j++)
-                foreach (Metacircle circle in circles)
-                    signalMap[i, j] += circle.getStrength(new Vector2(i * blockSize - worldDimensions.x, j * blockSize - worldDimensions.y));
+                signalMap[i * (resolutionY + 1) + j].val = 0;
+
+        ComputeBuffer valuePointBuffer = new ComputeBuffer(signalMap.Length, sizeof(float) * 3);
+        valuePointBuffer.SetData(signalMap);
+        signalProcessor.SetBuffer(0, "valuePoints", valuePointBuffer);
+
+        foreach (Metacircle circle in circles)
+        {
+            signalProcessor.SetFloats("sourceCoords", new float[] { circle.pos.x, circle.pos.y });
+            signalProcessor.SetFloat("sourceStrength", circle.strength);
+            signalProcessor.Dispatch(0, signalMap.Length / 8, 1, 1);
+        }
+        
+        valuePointBuffer.GetData(signalMap);
+
+        signalRenderer.SetTexture(0, "Result", signalTexture);
+        signalRenderer.SetBuffer(0, "valuePoints", valuePointBuffer);
+        signalRenderer.SetInts("pixelResolution", new int[] { signalTexture.width, signalTexture.height });
+        signalRenderer.SetInts("blockResolution", new int[] { resolutionX, resolutionY });
+        
+        signalRenderer.Dispatch(0, signalTexture.width / 8, signalTexture.height / 8, 1);
+
+        bgMaterial.SetTexture("_MainTex", signalTexture);
+
+        valuePointBuffer.Dispose();
+    }
+
+    private void calculateGrid()
+    {
+        Debug.Log("Recalculating Grid");
+        prevResY = resolutionY;
+        
+        resolutionX = (Screen.width * resolutionY) / Screen.height;
+        blockSize = (worldDimensions.y * 2) / resolutionY;
+        worldDimensions.x = (resolutionX * blockSize) / 2;
+
+        background.localScale = new Vector3(worldDimensions.x * 2, worldDimensions.y * 2, 1);
+
+        signalMap = new ValuePoint[(resolutionX + 1) * (resolutionY + 1)];
+
+        for (int i = 0; i < resolutionX + 1; i++)
+            for (int j = 0; j < resolutionY + 1; j++)
+                signalMap[i * (resolutionY + 1) + j].pos = new Vector2(i * blockSize - worldDimensions.x, j * blockSize - worldDimensions.y);
     }
 }

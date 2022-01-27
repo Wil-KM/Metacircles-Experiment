@@ -1,0 +1,25 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+struct ValuePoint
+{
+   float2 pos;
+   float val;
+};
+
+int2 pixelResolution;
+int2 blockResolution;
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+RWStructuredBuffer<ValuePoint> valuePoints;
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    ValuePoint valuePoint = valuePoints[((id.x * blockResolution.x) / pixelResolution.x) * (blockResolution.y + 1) + ((id.y * blockResolution.y) / pixelResolution.y)];
+
+    float normalisedValue = clamp(0, 1, valuePoint.val);
+
+    Result[id.xy] = float4(normalisedValue, normalisedValue, normalisedValue, 0.5);
+}
