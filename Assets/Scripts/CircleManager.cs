@@ -44,33 +44,7 @@ public class CircleManager : MonoBehaviour
         if (prevResY != resolutionY)
             calculateGrid();
 
-        for (int i = 0; i < resolutionX + 1; i++)
-            for (int j = 0; j < resolutionY + 1; j++)
-                signalMap[i * (resolutionY + 1) + j].val = 0;
-
-        ComputeBuffer valuePointBuffer = new ComputeBuffer(signalMap.Length, sizeof(float) * 3);
-        valuePointBuffer.SetData(signalMap);
-        signalProcessor.SetBuffer(0, "valuePoints", valuePointBuffer);
-
-        foreach (Metacircle circle in circles)
-        {
-            signalProcessor.SetFloats("sourceCoords", new float[] { circle.pos.x, circle.pos.y });
-            signalProcessor.SetFloat("sourceStrength", circle.strength);
-            signalProcessor.Dispatch(0, signalMap.Length / 8, 1, 1);
-        }
-        
-        valuePointBuffer.GetData(signalMap);
-
-        signalRenderer.SetTexture(0, "Result", signalTexture);
-        signalRenderer.SetBuffer(0, "valuePoints", valuePointBuffer);
-        signalRenderer.SetInts("pixelResolution", new int[] { signalTexture.width, signalTexture.height });
-        signalRenderer.SetInts("blockResolution", new int[] { resolutionX, resolutionY });
-        
-        signalRenderer.Dispatch(0, signalTexture.width / 8, signalTexture.height / 8, 1);
-
-        bgMaterial.SetTexture("_MainTex", signalTexture);
-
-        valuePointBuffer.Dispose();
+        runSimulation();
     }
 
     private void calculateGrid()
@@ -89,5 +63,47 @@ public class CircleManager : MonoBehaviour
         for (int i = 0; i < resolutionX + 1; i++)
             for (int j = 0; j < resolutionY + 1; j++)
                 signalMap[i * (resolutionY + 1) + j].pos = new Vector2(i * blockSize - worldDimensions.x, j * blockSize - worldDimensions.y);
+    }
+
+    private void runSimulation()
+    {
+        for (int i = 0; i < resolutionX + 1; i++)
+            for (int j = 0; j < resolutionY + 1; j++)
+                signalMap[i * (resolutionY + 1) + j].val = 0;
+
+        ComputeBuffer valuePointBuffer = new ComputeBuffer(signalMap.Length, sizeof(float) * 3);
+        valuePointBuffer.SetData(signalMap);
+
+        calculateValues(valuePointBuffer);
+        
+        valuePointBuffer.GetData(signalMap);
+
+        drawField(valuePointBuffer);
+
+        valuePointBuffer.Dispose();
+    }
+
+    private void calculateValues(ComputeBuffer vals)
+    {
+        signalProcessor.SetBuffer(0, "valuePoints", vals);
+
+        foreach (Metacircle circle in circles)
+        {
+            signalProcessor.SetFloats("sourceCoords", new float[] { circle.pos.x, circle.pos.y });
+            signalProcessor.SetFloat("sourceStrength", circle.strength);
+            signalProcessor.Dispatch(0, signalMap.Length / 8, 1, 1);
+        }
+    }
+
+    private void drawField(ComputeBuffer vals)
+    {
+        signalRenderer.SetTexture(0, "Result", signalTexture);
+        signalRenderer.SetBuffer(0, "valuePoints", vals);
+        signalRenderer.SetInts("pixelResolution", new int[] { signalTexture.width, signalTexture.height });
+        signalRenderer.SetInts("blockResolution", new int[] { resolutionX, resolutionY });
+        
+        signalRenderer.Dispatch(0, signalTexture.width / 8, signalTexture.height / 8, 1);
+
+        bgMaterial.SetTexture("_MainTex", signalTexture);
     }
 }
