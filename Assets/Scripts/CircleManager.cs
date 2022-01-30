@@ -91,7 +91,7 @@ public class CircleManager : MonoBehaviour
 
         foreach (Metacircle circle in circles)
         {
-            signalProcessor.SetFloats("sourceCoords", new float[] { circle.pos.x, circle.pos.y });
+            signalProcessor.SetFloats("sourceCoords", new float[] { circle.transform.position.x, circle.transform.position.y });
             signalProcessor.SetFloat("sourceStrength", circle.strength);
             signalProcessor.Dispatch(0, signalMap.Length / 8, 1, 1);
         }
