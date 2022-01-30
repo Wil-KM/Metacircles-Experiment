@@ -22,6 +22,8 @@ public class CircleManager : MonoBehaviour
     public Material bgMaterial;
     public ComputeShader signalRenderer;
 
+    public bool displayField;
+
     public struct ValuePoint
     {
         public Vector2 pos;
@@ -101,6 +103,7 @@ public class CircleManager : MonoBehaviour
         signalRenderer.SetBuffer(0, "valuePoints", vals);
         signalRenderer.SetInts("pixelResolution", new int[] { signalTexture.width, signalTexture.height });
         signalRenderer.SetInts("blockResolution", new int[] { resolutionX, resolutionY });
+        signalRenderer.SetInt("displayField", displayField ? 1 : 0);
         
         signalRenderer.Dispatch(0, signalTexture.width / 8, signalTexture.height / 8, 1);
 

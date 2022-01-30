@@ -181,7 +181,7 @@ GameObject:
   m_Layer: 0
   m_Name: Circle 1
   m_TagString: Untagged
-  m_Icon: {fileID: 0}
+  m_Icon: {fileID: 4162164826716764455, guid: 0000000000000000d000000000000000, type: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
@@ -343,11 +343,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cam: {fileID: 519420031}
-  resolutionY: 450
+  resolutionY: 10
   signalProcessor: {fileID: 7200000, guid: d4cff5a884f23f142b2e81880da030f7, type: 3}
   background: {fileID: 1392627143}
   bgMaterial: {fileID: 2100000, guid: 0b3fb4f5917d7ea43a49b87061723199, type: 2}
   signalRenderer: {fileID: 7200000, guid: 62b120b5dc2080049b4210d6d5e756e9, type: 3}
+  displayField: 1
 --- !u!1 &1392627140
 GameObject:
   m_ObjectHideFlags: 0
