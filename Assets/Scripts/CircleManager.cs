@@ -7,11 +7,12 @@ public class CircleManager : MonoBehaviour
     public Camera cam;
     private Vector2 worldDimensions;
     // Resolution of blocks used in marching cubes, higher res = better picture
+    [Range(5, 200)]
     public int resolutionY;
     private int prevResY;
     private int resolutionX;
     // Size of blocks used in marching cubes, calculated with resolution
-    private float blockSize;
+    private float pointSeparation;
     // All metacircles in the simulation
     private Metacircle[]  circles;
     // Stores the summation of all circle signal values for marching cubes
@@ -51,27 +52,26 @@ public class CircleManager : MonoBehaviour
 
     private void calculateGrid()
     {
-        Debug.Log("Recalculating Grid");
         prevResY = resolutionY;
         
-        resolutionX = (Screen.width * resolutionY) / Screen.height;
-        blockSize = (worldDimensions.y * 2) / resolutionY;
-        worldDimensions.x = (resolutionX * blockSize) / 2;
+        resolutionX = (Screen.width * (resolutionY - 1)) / Screen.height + 1;
+        pointSeparation = (worldDimensions.y * 2) / (resolutionY - 1);
+        worldDimensions.x = ((resolutionX - 1) * pointSeparation) / 2;
+
+        signalMap = new ValuePoint[resolutionX * resolutionY];
+
+        for (int i = 0; i < resolutionX; i++)
+            for (int j = 0; j < resolutionY; j++)
+                signalMap[i * resolutionY + j].pos = new Vector2(i * pointSeparation - worldDimensions.x, j * pointSeparation - worldDimensions.y);
 
         background.localScale = new Vector3(worldDimensions.x * 2, worldDimensions.y * 2, 1);
-
-        signalMap = new ValuePoint[(resolutionX + 1) * (resolutionY + 1)];
-
-        for (int i = 0; i < resolutionX + 1; i++)
-            for (int j = 0; j < resolutionY + 1; j++)
-                signalMap[i * (resolutionY + 1) + j].pos = new Vector2(i * blockSize - worldDimensions.x, j * blockSize - worldDimensions.y);
     }
 
     private void runSimulation()
     {
-        for (int i = 0; i < resolutionX + 1; i++)
-            for (int j = 0; j < resolutionY + 1; j++)
-                signalMap[i * (resolutionY + 1) + j].val = 0;
+        for (int i = 0; i < resolutionX ; i++)
+            for (int j = 0; j < resolutionY; j++)
+                signalMap[i * resolutionY + j].val = 0;
 
         ComputeBuffer valuePointBuffer = new ComputeBuffer(signalMap.Length, sizeof(float) * 3);
         valuePointBuffer.SetData(signalMap);
@@ -80,7 +80,9 @@ public class CircleManager : MonoBehaviour
         
         valuePointBuffer.GetData(signalMap);
 
-        drawField(valuePointBuffer);
+        drawField(valuePointBuffer, signalTexture);
+
+        bgMaterial.SetTexture("_MainTex", signalTexture);
 
         valuePointBuffer.Dispose();
     }
@@ -93,20 +95,20 @@ public class CircleManager : MonoBehaviour
         {
             signalProcessor.SetFloats("sourceCoords", new float[] { circle.transform.position.x, circle.transform.position.y });
             signalProcessor.SetFloat("sourceStrength", circle.strength);
-            signalProcessor.Dispatch(0, signalMap.Length / 8, 1, 1);
+            signalProcessor.Dispatch(0, vals.count / 8, 1, 1);
         }
     }
 
-    private void drawField(ComputeBuffer vals)
+    private void drawField(ComputeBuffer vals, RenderTexture tex)
     {
-        signalRenderer.SetTexture(0, "Result", signalTexture);
+        signalRenderer.SetTexture(0, "SignalMap", tex);
         signalRenderer.SetBuffer(0, "valuePoints", vals);
-        signalRenderer.SetInts("pixelResolution", new int[] { signalTexture.width, signalTexture.height });
-        signalRenderer.SetInts("blockResolution", new int[] { resolutionX, resolutionY });
+        signalRenderer.SetInts("pixelResolution", new int[] { tex.width, tex.height });
+        signalRenderer.SetInts("pointResolution", new int[] { resolutionX, resolutionY });
         signalRenderer.SetInt("displayField", displayField ? 1 : 0);
         
-        signalRenderer.Dispatch(0, signalTexture.width / 8, signalTexture.height / 8, 1);
+        signalRenderer.Dispatch(0, tex.width / 8, tex.height / 8, 1);
 
-        bgMaterial.SetTexture("_MainTex", signalTexture);
+        bgMaterial.SetTexture("_MainTex", tex);
     }
 }

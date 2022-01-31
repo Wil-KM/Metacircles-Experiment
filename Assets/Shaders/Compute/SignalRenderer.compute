@@ -9,27 +9,27 @@ struct ValuePoint
 
 int displayField;
 int2 pixelResolution;
-int2 blockResolution;
+int2 pointResolution;
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
-RWTexture2D<float4> Result;
+RWTexture2D<float4> SignalMap;
 RWStructuredBuffer<ValuePoint> valuePoints;
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    int index = ((id.x * blockResolution.x) / pixelResolution.x) * (blockResolution.y + 1) + ((id.y * blockResolution.y) / pixelResolution.y);
+    int index = ((id.x * pointResolution.x) / pixelResolution.x) * pointResolution.y + ((id.y * pointResolution.y) / pixelResolution.y);
 
     ValuePoint point0 = valuePoints[index];
     ValuePoint point1 = valuePoints[index + 1];
-    ValuePoint point2 = valuePoints[index + (blockResolution.y + 1)];
-    ValuePoint point3 = valuePoints[index + (blockResolution.y + 1) + 1];
+    ValuePoint point2 = valuePoints[index + (pointResolution.y + 1)];
+    ValuePoint point3 = valuePoints[index + (pointResolution.y + 1) + 1];
 
     if (displayField)
     {
         float normalisedValue = clamp(0, 1, point0.val);
 
-        Result[id.xy] = float4(normalisedValue, normalisedValue, normalisedValue, 0.5);
+        SignalMap[id.xy] = float4(normalisedValue, normalisedValue, normalisedValue, 0.5);
     }
 
 
