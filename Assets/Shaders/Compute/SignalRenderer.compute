@@ -3,34 +3,105 @@
 
 struct ValuePoint
 {
-   float2 pos;
-   float val;
+    int posX;
+    int posY;
+    float val;
 };
 
 int displayField;
 int2 pixelResolution;
 int2 pointResolution;
+int pointSeperation;
+float lineThickness;
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
-RWTexture2D<float4> SignalMap;
+RWTexture2D<float4> Texture;
 RWStructuredBuffer<ValuePoint> valuePoints;
+
+float distToLineSquared(float2 p, float2 a, float2 b)
+{
+    return pow((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y), 2) / (pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+}
+
+float calculateLineOpacity(float2 p, int msCase)
+{
+    float value = 0;
+    float normalisedThickness = lineThickness * pointResolution.y;
+
+    switch (msCase)
+    {
+        case 0:
+        case 15:
+            value = 1;
+            break;
+        case 1:
+        case 14:
+            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(0.5, 0), float2(0, 0.5)));
+            break;
+        case 2:
+        case 13:
+            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(0.5, 0), float2(1, 0.5)));
+            break;
+        case 3:
+        case 12:
+            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(0, 0.5), float2(1, 0.5)));
+            break;
+        case 4:
+        case 11:
+            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(0.5, 1), float2(1, 0.5)));
+            break;
+        case 5:
+            value = min
+            (
+                smoothstep(0, normalisedThickness, distToLineSquared(p, float2(0.5, 0), float2(1, 0.5))),
+                smoothstep(0, normalisedThickness, distToLineSquared(p, float2(0, 0.5), float2(0.5, 1)))
+            );
+            break;
+        case 10:
+            value = min
+            (
+                smoothstep(0, normalisedThickness, distToLineSquared(p, float2(0.5, 0), float2(0, 0.5))),
+                smoothstep(0, normalisedThickness, distToLineSquared(p, float2(1, 0.5), float2(0.5, 1)))
+            );
+            break;
+        case 6:
+        case 9:
+            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(0.5, 0), float2(0.5, 1)));
+            break;
+        case 7:
+        case 8:
+            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(0, 0.5), float2(0.5, 1)));
+            break;
+    }
+
+    return 1 - value;
+}
+
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    int index = ((id.x * pointResolution.x) / pixelResolution.x) * pointResolution.y + ((id.y * pointResolution.y) / pixelResolution.y);
+    int index = ((id.x * (pointResolution.x - 1)) / pixelResolution.x) * pointResolution.y + ((id.y * (pointResolution.y - 1)) / pixelResolution.y);
 
     ValuePoint point0 = valuePoints[index];
-    ValuePoint point1 = valuePoints[index + 1];
-    ValuePoint point2 = valuePoints[index + (pointResolution.y + 1)];
-    ValuePoint point3 = valuePoints[index + (pointResolution.y + 1) + 1];
+    ValuePoint point1 = valuePoints[index + pointResolution.y];
+    ValuePoint point2 = valuePoints[index + pointResolution.y + 1];
+    ValuePoint point3 = valuePoints[index + 1];
 
     if (displayField)
     {
-        float normalisedValue = clamp(0, 1, point0.val);
+        float normalisedValue = saturate((point0.val + point1.val + point2.val + point3.val) / 4) * 1000;
 
-        SignalMap[id.xy] = float4(normalisedValue, normalisedValue, normalisedValue, 0.5);
+        Texture[id.xy] = float4(normalisedValue, normalisedValue, normalisedValue, 1);
+    }
+    else
+    {
+        Texture[id.xy] = float4(0.25, 0.25, 0.25, 1);
     }
 
+    int msCase = (point0.val >= 0.001 ? 1 : 0) | (point1.val >= 0.001 ? 1 : 0) << 1 | (point2.val >= 0.001 ? 1 : 0) << 2 | (point3.val >= 0.001 ? 1 : 0) << 3;
 
+    float opacity = calculateLineOpacity(float2((float) (id.x % pointSeperation) / pointSeperation, (float) (id.y % pointSeperation) / pointSeperation), msCase);
+
+    Texture[id.xy] = float4((float) id.x / pixelResolution.x, (float) id.y / pixelResolution.y, 1, opacity) * opacity + Texture[id.xy] * (1 - opacity);
 }

@@ -192,7 +192,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 163432632}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 4.81, y: 3.89, z: 0}
+  m_LocalPosition: {x: 4.81, y: 2.76, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 856064123}
@@ -341,12 +341,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cam: {fileID: 519420031}
-  resolutionY: 10
   signalProcessor: {fileID: 7200000, guid: d4cff5a884f23f142b2e81880da030f7, type: 3}
   background: {fileID: 1392627143}
   bgMaterial: {fileID: 2100000, guid: 0b3fb4f5917d7ea43a49b87061723199, type: 2}
   signalRenderer: {fileID: 7200000, guid: 62b120b5dc2080049b4210d6d5e756e9, type: 3}
-  displayField: 1
+  resolutionY: 75
+  lineThickness: 0.001
+  displayField: 0
 --- !u!1 &1392627140
 GameObject:
   m_ObjectHideFlags: 0
@@ -453,7 +454,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2069682794}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 4.36, y: -4.29, z: 0}
+  m_LocalPosition: {x: 4.36, y: -2.91, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 856064123}

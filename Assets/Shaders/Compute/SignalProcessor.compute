@@ -3,7 +3,8 @@
 
 struct ValuePoint
 {
-    float2 pos;
+    int posX;
+    int posY;
     float val;
 };
 
@@ -16,7 +17,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 {
     ValuePoint valuePoint = valuePoints[id.x];
 
-    valuePoint.val += sourceStrength / (pow((valuePoint.pos.x - sourceCoords.x), 2) + pow(valuePoint.pos.y - sourceCoords.y, 2));
+    valuePoint.val += sourceStrength / (pow((valuePoint.posX - sourceCoords.x), 2) + pow(valuePoint.posY - sourceCoords.y, 2));
 
     valuePoints[id.x] = valuePoint;
 }
