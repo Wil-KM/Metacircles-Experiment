@@ -11,7 +11,7 @@ struct ValuePoint
 int displayField;
 int2 pixelResolution;
 int2 pointResolution;
-int pointSeperation;
+int pointSeparation;
 float lineThickness;
 
 // Create a RenderTexture with enableRandomWrite flag and set it
@@ -101,7 +101,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     int msCase = (point0.val >= 0.001 ? 1 : 0) | (point1.val >= 0.001 ? 1 : 0) << 1 | (point2.val >= 0.001 ? 1 : 0) << 2 | (point3.val >= 0.001 ? 1 : 0) << 3;
 
-    float opacity = calculateLineOpacity(float2((float) (id.x % pointSeperation) / pointSeperation, (float) (id.y % pointSeperation) / pointSeperation), msCase);
+    float opacity = calculateLineOpacity(float2((float) (id.x % pointSeparation) / pointSeparation, (float) (id.y % pointSeparation) / pointSeparation), msCase);
 
     Texture[id.xy] = float4((float) id.x / pixelResolution.x, (float) id.y / pixelResolution.y, 1, opacity) * opacity + Texture[id.xy] * (1 - opacity);
 }

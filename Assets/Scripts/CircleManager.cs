@@ -123,7 +123,7 @@ public class CircleManager : MonoBehaviour
         signalRenderer.SetBuffer(0, "valuePoints", vals);
         signalRenderer.SetInts("pixelResolution", new int[] { tex.width, tex.height });
         signalRenderer.SetInts("pointResolution", new int[] { resolutionX, resolutionY });
-        signalRenderer.SetInt("pointSeperation", pointSeparation);
+        signalRenderer.SetInt("pointSeparation", pointSeparation);
         signalRenderer.SetFloat("lineThickness", lineThickness);
         signalRenderer.SetInt("displayField", displayField ? 1 : 0);
         
