@@ -22,6 +22,8 @@ public class CircleManager : MonoBehaviour
     private RenderTexture signalTexture;
     public float lineThickness;
     public bool displayField;
+    public bool interpolate;
+    private const float threshold = 0.001f;
 
     public struct ValuePoint
     {
@@ -50,7 +52,7 @@ public class CircleManager : MonoBehaviour
         {
             for (int j = 0; j < resolutionY; j++)
             {
-                Gizmos.color = (signalMap[i * resolutionY + j].val >= 0.001 ? Color.green : Color.red);
+                Gizmos.color = (signalMap[i * resolutionY + j].val >= threshold ? Color.green : Color.red);
 
                 Gizmos.DrawSphere(cam.ScreenToWorldPoint(new Vector3(i * pointSeparation, j * pointSeparation, 1)) - cam.transform.position.z * Vector3.forward, 0.1f);
             }
@@ -125,7 +127,9 @@ public class CircleManager : MonoBehaviour
         signalRenderer.SetInts("pointResolution", new int[] { resolutionX, resolutionY });
         signalRenderer.SetInt("pointSeparation", pointSeparation);
         signalRenderer.SetFloat("lineThickness", lineThickness);
+        signalRenderer.SetFloat("threshold", threshold);
         signalRenderer.SetInt("displayField", displayField ? 1 : 0);
+        signalRenderer.SetInt("interpolate", interpolate ? 1 : 0);
         
         signalRenderer.Dispatch(0, tex.width / 8, tex.height / 8, 1);
 
