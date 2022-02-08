@@ -8,109 +8,36 @@ struct ValuePoint
     float val;
 };
 
-int displayField;
-int interpolate;
 int2 pixelResolution;
 int2 pointResolution;
-int pointSeparation;
-float lineThickness;
 float threshold;
+int displayField;
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
 RWTexture2D<float4> Texture;
 RWStructuredBuffer<ValuePoint> valuePoints;
 
-float distToLineSquared(float2 p, float2 a, float2 b)
-{
-    return pow((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y), 2) / (pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
-}
-
-float marchingSquares(float2 p, int msCase, float4 values)
-{
-    float value = 0;
-    float normalisedThickness = lineThickness * pointResolution.y;
-
-    float inter01 = smoothstep(values.x, values.y, threshold) * interpolate + 0.5 * (1 - interpolate);
-    float inter12 = smoothstep(values.y, values.z, threshold) * interpolate + 0.5 * (1 - interpolate);
-    float inter23 = smoothstep(values.w, values.z, threshold) * interpolate + 0.5 * (1 - interpolate);
-    float inter30 = smoothstep(values.x, values.w, threshold) * interpolate + 0.5 * (1 - interpolate);
-
-    switch (msCase)
-    {
-        case 0:
-        case 15:
-            value = 1;
-            break;
-        case 1:
-        case 14:
-            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(inter01, 0), float2(0, inter30)));
-            break;
-        case 2:
-        case 13:
-            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(inter01, 0), float2(1, inter12)));
-            break;
-        case 3:
-        case 12:
-            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(1, inter12), float2(0, inter30)));
-            break;
-        case 4:
-        case 11:
-            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(1, inter12), float2(inter23, 1)));
-            break;
-        case 5:
-            value = min
-            (
-                smoothstep(0, normalisedThickness, distToLineSquared(p, float2(inter01, 0), float2(1, inter12))),
-                smoothstep(0, normalisedThickness, distToLineSquared(p, float2(inter23, 1), float2(0, inter30)))
-            );
-            break;
-        case 10:
-            value = min
-            (
-                smoothstep(0, normalisedThickness, distToLineSquared(p, float2(inter01, 0), float2(0, inter30))),
-                smoothstep(0, normalisedThickness, distToLineSquared(p, float2(1, inter12), float2(inter23, 1)))
-            );
-            break;
-        case 6:
-        case 9:
-            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(inter01, 0), float2(inter23, 1)));
-            break;
-        case 7:
-        case 8:
-            value = smoothstep(0, normalisedThickness, distToLineSquared(p, float2(inter23, 1), float2(0, inter30)));
-            break;
-    }
-
-    return 1 - value;
-}
-
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    int index = ((id.x * (pointResolution.x - 1)) / pixelResolution.x) * pointResolution.y + ((id.y * (pointResolution.y - 1)) / pixelResolution.y);
-
-    ValuePoint point0 = valuePoints[index];
-    ValuePoint point1 = valuePoints[index + pointResolution.y];
-    ValuePoint point2 = valuePoints[index + pointResolution.y + 1];
-    ValuePoint point3 = valuePoints[index + 1];
-
-    float4 values = float4(point0.val, point1.val, point2.val, point3.val);
-
-    if (displayField)
+    if (displayField == 1)
     {
+        int index = ((id.x * (pointResolution.x - 1)) / pixelResolution.x) * pointResolution.y + ((id.y * (pointResolution.y - 1)) / pixelResolution.y);
+
+        ValuePoint point0 = valuePoints[index];
+        ValuePoint point1 = valuePoints[index + pointResolution.y];
+        ValuePoint point2 = valuePoints[index + pointResolution.y + 1];
+        ValuePoint point3 = valuePoints[index + 1];
+
+        float4 values = float4(point0.val, point1.val, point2.val, point3.val);
+
         float normalisedValue = saturate((values.x + values.y + values.z + values.w) / 4) / threshold;
 
         Texture[id.xy] = float4(normalisedValue, normalisedValue, normalisedValue, 1);
     }
     else
     {
-        Texture[id.xy] = float4(0.25, 0.25, 0.25, 1);
+        Texture[id.xy] = float4(0, 0, 0, 0);
     }
-
-    int msCase = (values.x >= threshold ? 1 : 0) | (values.y >= threshold ? 1 : 0) << 1 | (values.z >= threshold ? 1 : 0) << 2 | (values.w >= threshold ? 1 : 0) << 3;
-
-    float opacity = marchingSquares(float2((float) (id.x % pointSeparation) / pointSeparation, (float) (id.y % pointSeparation) / pointSeparation), msCase, values);
-
-    Texture[id.xy] = float4((float) id.x / pixelResolution.x, (float) id.y / pixelResolution.y, 1, opacity) * opacity + Texture[id.xy] * (1 - opacity);
 }

@@ -342,12 +342,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cam: {fileID: 519420031}
   signalProcessor: {fileID: 7200000, guid: d4cff5a884f23f142b2e81880da030f7, type: 3}
+  thresholdRenderer: {fileID: 7200000, guid: 1002d37edb9b3e34fa3f1c1aabcd63c7, type: 3}
+  signalRenderer: {fileID: 7200000, guid: 62b120b5dc2080049b4210d6d5e756e9, type: 3}
   background: {fileID: 1392627143}
   bgMaterial: {fileID: 2100000, guid: 0b3fb4f5917d7ea43a49b87061723199, type: 2}
-  signalRenderer: {fileID: 7200000, guid: 62b120b5dc2080049b4210d6d5e756e9, type: 3}
   resolutionY: 75
-  lineThickness: 0.001
+  lineThickness: 2
   displayField: 0
+  interpolate: 0
 --- !u!1 &1392627140
 GameObject:
   m_ObjectHideFlags: 0

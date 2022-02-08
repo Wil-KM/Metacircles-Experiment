@@ -6,11 +6,12 @@ public class CircleManager : MonoBehaviour
 {
     public Camera cam;
     public ComputeShader signalProcessor;
+    public ComputeShader thresholdRenderer;
+    public ComputeShader signalRenderer;
     public Transform background;
     public Material bgMaterial;
-    public ComputeShader signalRenderer;
     // Resolution of blocks used in marching cubes, higher res = better picture
-    [Range(5, 200)]
+    [Range(10, 200)]
     public int resolutionY;
     private int prevResY;
     private int resolutionX;
@@ -20,7 +21,7 @@ public class CircleManager : MonoBehaviour
     // Stores the summation of all circle signal values for marching cubes
     private ValuePoint[] signalMap;
     private RenderTexture signalTexture;
-    public float lineThickness;
+    public int lineThickness;
     public bool displayField;
     public bool interpolate;
     private const float threshold = 0.001f;
@@ -101,6 +102,8 @@ public class CircleManager : MonoBehaviour
 
         drawField(valuePointBuffer, signalTexture);
 
+        drawThreshold(valuePointBuffer, signalTexture);
+
         bgMaterial.SetTexture("_MainTex", signalTexture);
 
         valuePointBuffer.Dispose();
@@ -125,14 +128,23 @@ public class CircleManager : MonoBehaviour
         signalRenderer.SetBuffer(0, "valuePoints", vals);
         signalRenderer.SetInts("pixelResolution", new int[] { tex.width, tex.height });
         signalRenderer.SetInts("pointResolution", new int[] { resolutionX, resolutionY });
-        signalRenderer.SetInt("pointSeparation", pointSeparation);
-        signalRenderer.SetFloat("lineThickness", lineThickness);
         signalRenderer.SetFloat("threshold", threshold);
         signalRenderer.SetInt("displayField", displayField ? 1 : 0);
-        signalRenderer.SetInt("interpolate", interpolate ? 1 : 0);
         
         signalRenderer.Dispatch(0, tex.width / 8, tex.height / 8, 1);
+    }
 
-        bgMaterial.SetTexture("_MainTex", tex);
+    private void drawThreshold(ComputeBuffer vals, RenderTexture tex)
+    {
+        thresholdRenderer.SetTexture(0, "Texture", tex);
+        thresholdRenderer.SetBuffer(0, "valuePoints", vals);
+        thresholdRenderer.SetInt("interpolate", interpolate ? 1 : 0);
+        thresholdRenderer.SetInts("pixelResolution", new int[] { tex.width, tex.height });
+        thresholdRenderer.SetInts("pointResolution", new int[] { resolutionX, resolutionY });
+        thresholdRenderer.SetInt("pointSeparation", pointSeparation);
+        thresholdRenderer.SetInt("lineThickness", lineThickness);
+        thresholdRenderer.SetFloat("threshold", threshold);
+        
+        thresholdRenderer.Dispatch(0, resolutionX / 8, resolutionY / 8, 1);
     }
 }
