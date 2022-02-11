@@ -9,15 +9,15 @@ struct ValuePoint
 };
 
 float2 sourceCoords;
-float sourceStrength;
+float sourceRadius;
 
 RWStructuredBuffer<ValuePoint> valuePoints;
-[numthreads(8,1,1)]
+[numthreads(64,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     ValuePoint valuePoint = valuePoints[id.x];
 
-    valuePoint.val += sourceStrength / (pow((valuePoint.posX - sourceCoords.x), 2) + pow(valuePoint.posY - sourceCoords.y, 2));
+    valuePoint.val += pow(sourceRadius, 2) / (pow((valuePoint.posX - sourceCoords.x), 2) + pow(valuePoint.posY - sourceCoords.y, 2));
 
     valuePoints[id.x] = valuePoint;
 }

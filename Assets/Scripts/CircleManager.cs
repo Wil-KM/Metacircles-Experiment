@@ -6,12 +6,11 @@ public class CircleManager : MonoBehaviour
 {
     public Camera cam;
     public ComputeShader signalProcessor;
-    public ComputeShader thresholdRenderer;
-    public ComputeShader signalRenderer;
+    public ComputeShader textureRenderer;
     public Transform background;
     public Material bgMaterial;
     // Resolution of blocks used in marching cubes, higher res = better picture
-    [Range(10, 200)]
+    [Range(10, 400)]
     public int resolutionY;
     private int prevResY;
     private int resolutionX;
@@ -20,11 +19,11 @@ public class CircleManager : MonoBehaviour
     private Metacircle[]  circles;
     // Stores the summation of all circle signal values for marching cubes
     private ValuePoint[] signalMap;
-    private RenderTexture signalTexture;
+    private RenderTexture texture;
     public int lineThickness;
     public bool displayField;
     public bool interpolate;
-    private const float threshold = 0.001f;
+    private const int growthSpeed = 5;
 
     public struct ValuePoint
     {
@@ -36,6 +35,13 @@ public class CircleManager : MonoBehaviour
     void Start()
     {
         circles = GetComponentsInChildren<Metacircle>();
+
+        foreach (Metacircle circle in circles)
+        {
+            circle.velocity = new int[] { Random.Range(20, 50) * (Random.Range(0, 2) == 1 ? 1 : -1), Random.Range(20, 50) * (Random.Range(0, 2) == 1? 1 : -1) };
+            circle.radius = Random.Range(20f, 40f);
+            circle.growth = (Random.Range(0, 2) == 1 ? 1 : -1);
+        }
     }
 
     void Update()
@@ -44,7 +50,49 @@ public class CircleManager : MonoBehaviour
         if (prevResY != resolutionY)
             calculateGrid();
 
-        runSimulation();
+        foreach (Metacircle circle in circles)
+        {
+            Vector3 newPixelPos = cam.WorldToScreenPoint(circle.transform.position) + new Vector3 (circle.velocity[0], circle.velocity[1], 0) * Time.deltaTime;
+
+            if (newPixelPos.x - circle.radius < 0) 
+            {
+                newPixelPos.x = circle.radius;
+                circle.velocity[0] *= -1;
+            }
+            else if (newPixelPos.x + circle.radius > Screen.width)
+            {
+                newPixelPos.x = Screen.width - circle.radius;
+                circle.velocity[0] *= -1;
+            }
+
+            if (newPixelPos.y - circle.radius < 0) 
+            {
+                newPixelPos.y = circle.radius;
+                circle.velocity[1] *= -1;
+            }
+            else if (newPixelPos.y + circle.radius > Screen.height) 
+            {
+                newPixelPos.y = Screen.height - circle.radius;
+                circle.velocity[1] *= -1;
+            }
+
+            circle.transform.position = cam.ScreenToWorldPoint(newPixelPos);
+
+            circle.radius += growthSpeed * circle.growth * Time.deltaTime;
+
+            if (circle.radius < 20f)
+            {
+                circle.radius = 20f;
+                circle.growth *= -1;
+            }
+            else if (circle.radius > 40f)
+            {
+                circle.radius = 40f;
+                circle.growth *= -1;
+            }
+        }
+
+        renderGraphics();
     }
 
     private void OnDrawGizmos() 
@@ -53,7 +101,7 @@ public class CircleManager : MonoBehaviour
         {
             for (int j = 0; j < resolutionY; j++)
             {
-                Gizmos.color = (signalMap[i * resolutionY + j].val >= threshold ? Color.green : Color.red);
+                Gizmos.color = (signalMap[i * resolutionY + j].val >= 1 ? Color.green : Color.red);
 
                 Gizmos.DrawSphere(cam.ScreenToWorldPoint(new Vector3(i * pointSeparation, j * pointSeparation, 1)) - cam.transform.position.z * Vector3.forward, 0.1f);
             }
@@ -82,12 +130,12 @@ public class CircleManager : MonoBehaviour
         background.localScale = cam.ScreenToWorldPoint(new Vector2(Screen.width + screenOverlap[0] / 2, Screen.height + screenOverlap[1] / 2)) * 2;
         background.localPosition = cam.ScreenToWorldPoint(new Vector2((Screen.width + screenOverlap[0]) / 2, (Screen.height + screenOverlap[1]) / 2)) - cam.transform.position.z * Vector3.forward;
             
-        signalTexture = new RenderTexture(dimensions[0], dimensions[1], 24);
-        signalTexture.enableRandomWrite = true;
-        signalTexture.Create();
+        texture = new RenderTexture(dimensions[0], dimensions[1], 24);
+        texture.enableRandomWrite = true;
+        texture.Create();
     }
 
-    private void runSimulation()
+    private void renderGraphics()
     {
         for (int i = 0; i < resolutionX ; i++)
             for (int j = 0; j < resolutionY; j++)
@@ -99,12 +147,10 @@ public class CircleManager : MonoBehaviour
         calculateValues(valuePointBuffer);
         
         valuePointBuffer.GetData(signalMap);
+        
+        draw(valuePointBuffer, texture);
 
-        drawField(valuePointBuffer, signalTexture);
-
-        drawThreshold(valuePointBuffer, signalTexture);
-
-        bgMaterial.SetTexture("_MainTex", signalTexture);
+        bgMaterial.SetTexture("_MainTex", texture);
 
         valuePointBuffer.Dispose();
     }
@@ -117,34 +163,27 @@ public class CircleManager : MonoBehaviour
         {
             Vector2 pixelPos = cam.WorldToScreenPoint(circle.transform.position);
             signalProcessor.SetFloats("sourceCoords", new float[] { pixelPos.x, pixelPos.y });
-            signalProcessor.SetFloat("sourceStrength", circle.strength);
-            signalProcessor.Dispatch(0, vals.count / 8, 1, 1);
+            signalProcessor.SetFloat("sourceRadius", circle.radius);
+            signalProcessor.Dispatch(0, vals.count / 64, 1, 1);
         }
     }
 
-    private void drawField(ComputeBuffer vals, RenderTexture tex)
+    private void draw(ComputeBuffer vals, RenderTexture tex)
     {
-        signalRenderer.SetTexture(0, "Texture", tex);
-        signalRenderer.SetBuffer(0, "valuePoints", vals);
-        signalRenderer.SetInts("pixelResolution", new int[] { tex.width, tex.height });
-        signalRenderer.SetInts("pointResolution", new int[] { resolutionX, resolutionY });
-        signalRenderer.SetFloat("threshold", threshold);
-        signalRenderer.SetInt("displayField", displayField ? 1 : 0);
-        
-        signalRenderer.Dispatch(0, tex.width / 8, tex.height / 8, 1);
-    }
+        textureRenderer.SetTexture(0, "Texture", tex);
+        textureRenderer.SetBuffer(0, "valuePoints", vals);
+        textureRenderer.SetTexture(1, "Texture", tex);
+        textureRenderer.SetBuffer(1, "valuePoints", vals);
+        textureRenderer.SetTexture(2, "Texture", tex);
+        textureRenderer.SetInt("interpolate", interpolate ? 1 : 0);
+        textureRenderer.SetInt("displayField", displayField ? 1 : 0);
+        textureRenderer.SetInts("pixelResolution", new int[] { tex.width, tex.height });
+        textureRenderer.SetInts("pointResolution", new int[] { resolutionX, resolutionY });
+        textureRenderer.SetInt("pointSeparation", pointSeparation);
+        textureRenderer.SetInt("lineThickness", lineThickness);
 
-    private void drawThreshold(ComputeBuffer vals, RenderTexture tex)
-    {
-        thresholdRenderer.SetTexture(0, "Texture", tex);
-        thresholdRenderer.SetBuffer(0, "valuePoints", vals);
-        thresholdRenderer.SetInt("interpolate", interpolate ? 1 : 0);
-        thresholdRenderer.SetInts("pixelResolution", new int[] { tex.width, tex.height });
-        thresholdRenderer.SetInts("pointResolution", new int[] { resolutionX, resolutionY });
-        thresholdRenderer.SetInt("pointSeparation", pointSeparation);
-        thresholdRenderer.SetInt("lineThickness", lineThickness);
-        thresholdRenderer.SetFloat("threshold", threshold);
-        
-        thresholdRenderer.Dispatch(0, resolutionX / 8, resolutionY / 8, 1);
+        textureRenderer.Dispatch(2, tex.width / 8, tex.height / 8, 1);
+        textureRenderer.Dispatch(0, resolutionX / 8, resolutionY / 8, 1);
+        if (displayField) textureRenderer.Dispatch(1, tex.width / 8, tex.height / 8, 1);
     }
 }

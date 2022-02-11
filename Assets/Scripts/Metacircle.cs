@@ -4,5 +4,9 @@ using UnityEngine;
 
 public class Metacircle : MonoBehaviour
 {
-    public float strength;
+    public float radius;
+
+    public int[] velocity;
+
+    public int growth;
 }

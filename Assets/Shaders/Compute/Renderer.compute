@@ -1,0 +1,121 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel LineRenderer
+#pragma kernel SignalRenderer
+#pragma kernel TextureClear
+
+struct ValuePoint
+{
+    int posX;
+    int posY;
+    float val;
+};
+
+int interpolate;
+int2 pixelResolution;
+int2 pointResolution;
+int pointSeparation;
+int lineThickness;
+
+RWTexture2D<float4> Texture;
+RWStructuredBuffer<ValuePoint> valuePoints;
+
+float sqrDistanceToLineSegment(int2 p, int2 a, int2 b)
+{
+    float2 pa = p-a; 
+    float2 ba = b-a;
+    float h = saturate(dot(pa, ba) / dot(ba, ba));
+    float2 d = pa - ba * h;
+    return dot(d,d);
+}
+
+void drawLine(int2 a, int2 b, float thickness)
+{
+    for (int i = min(a.x, b.x) - thickness; i <= max(a.x, b.x) + thickness; i++)
+    {
+        for (int j = min(a.y, b.y) - thickness; j <= max(a.y, b.y) + thickness; j++)
+        {
+            float alpha = max(1 - smoothstep(0, thickness, sqrDistanceToLineSegment(int2(i, j), a, b)), Texture[float2(i, j)].w);
+            Texture[float2(i, j)] = float4((float) i / pixelResolution.x, (float) j / pixelResolution.y, 1, alpha);
+        }
+    }
+}
+
+[numthreads(8,8,1)]
+void LineRenderer (uint3 id : SV_DispatchThreadID)
+{
+    ValuePoint point0 = valuePoints[id.x * pointResolution.y + id.y];
+    ValuePoint point1 = valuePoints[(id.x + 1) * pointResolution.y + id.y];
+    ValuePoint point2 = valuePoints[(id.x + 1) * pointResolution.y + id.y + 1];
+    ValuePoint point3 = valuePoints[id.x * pointResolution.y + id.y + 1];
+
+    float4 values = float4(point0.val, point1.val, point2.val, point3.val);
+    
+    int msCase = (values.x >= 1 ? 1 : 0) | (values.y >= 1 ? 1 : 0) << 1 | (values.z >= 1 ? 1 : 0) << 2 | (values.w >= 1 ? 1 : 0) << 3;
+
+    int inter01 = (smoothstep(values.x, values.y, 1) * interpolate + 0.5 * (1 - interpolate) + id.x) * pointSeparation;
+    int inter12 = (smoothstep(values.y, values.z, 1) * interpolate + 0.5 * (1 - interpolate) + id.y) * pointSeparation;
+    int inter23 = (smoothstep(values.w, values.z, 1) * interpolate + 0.5 * (1 - interpolate) + id.x) * pointSeparation;
+    int inter30 = (smoothstep(values.x, values.w, 1) * interpolate + 0.5 * (1 - interpolate) + id.y) * pointSeparation;
+    
+    switch (msCase)
+    {
+        case 0:
+        case 15:
+            break;
+        case 1:
+        case 14:
+            drawLine(int2(inter01, id.y * pointSeparation), int2(id.x * pointSeparation, inter30), lineThickness);
+            break;
+        case 2:
+        case 13:
+            drawLine(int2(inter01, id.y * pointSeparation), int2((id.x + 1) * pointSeparation, inter12), lineThickness);
+            break;
+        case 3:
+        case 12:
+            drawLine(int2((id.x + 1) * pointSeparation, inter12), int2(id.x * pointSeparation, inter30), lineThickness);
+            break;
+        case 4:
+        case 11:
+            drawLine(int2((id.x + 1) * pointSeparation, inter12), int2(inter23, (id.y + 1) * pointSeparation), lineThickness);
+            break;
+        case 5:
+            drawLine(int2(inter01, id.y * pointSeparation), int2((id.x + 1) * pointSeparation, inter12), lineThickness);
+            drawLine(int2(inter23, (id.y + 1) * pointSeparation), int2(id.x * pointSeparation, inter30), lineThickness);
+            break;
+        case 10:
+            drawLine(int2(inter01, id.y * pointSeparation), int2(id.x * pointSeparation, inter30), lineThickness);
+            drawLine(int2((id.x + 1) * pointSeparation, inter12), int2(inter23, (id.y + 1) * pointSeparation), lineThickness);
+            break;
+        case 6:
+        case 9:
+            drawLine(int2(inter01, id.y * pointSeparation), int2(inter23, (id.y + 1) * pointSeparation), lineThickness);
+            break;
+        case 7:
+        case 8:
+            drawLine(int2(inter23, (id.y + 1) * pointSeparation), int2(id.x * pointSeparation, inter30), lineThickness);
+            break;
+    }
+}
+
+[numthreads(8,8,1)]
+void SignalRenderer (uint3 id : SV_DispatchThreadID)
+{
+    int index = ((id.x * (pointResolution.x - 1)) / pixelResolution.x) * pointResolution.y + ((id.y * (pointResolution.y - 1)) / pixelResolution.y);
+
+    ValuePoint point0 = valuePoints[index];
+    ValuePoint point1 = valuePoints[index + pointResolution.y];
+    ValuePoint point2 = valuePoints[index + pointResolution.y + 1];
+    ValuePoint point3 = valuePoints[index + 1];
+
+    float4 values = float4(point0.val, point1.val, point2.val, point3.val);
+
+    float normalisedValue = saturate((values.x + values.y + values.z + values.w) / 4) / 1;
+
+    Texture[id.xy] = Texture[id.xy] * Texture[id.xy].w + (1 - Texture[id.xy].w) * float4(normalisedValue, normalisedValue, normalisedValue, 1);
+}
+
+[numthreads(8,8,1)]
+void TextureClear (uint3 id : SV_DispatchThreadID)
+{
+    Texture[id.xy] = float4(0, 0, 0, 0);
+}
