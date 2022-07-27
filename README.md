@@ -1,4 +1,4 @@
-![alt text](thumbnail.PNG?raw=true)
+![alt text](https://github.com/Wil-KM/Metacircles-Experiment/blob/main/Thumbnail.PNG?raw=true)
 
 Just a little experiment with marching squares to create some bouncy floaty metacircles.
 
